@@ -13,7 +13,7 @@ config = {
 }
 
 for message_chunk, metadata in agent.stream(
-    {"messages": [HumanMessage(content="tôi là tường, hãy nhớ điều đó")]},
+    {"messages": [HumanMessage(content="456729 cộng 398765 bằng bao nhiêu")]},
     config=config,
     stream_mode="messages",
 ):

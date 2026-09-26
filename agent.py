@@ -17,13 +17,16 @@ from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.checkpoint.sqlite import SqliteSaver
 from tools import tools 
 
-# Update default and allowed models
-DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+# Đảm bảo thư mục lưu trữ SQLite tồn tại
+Path("data").mkdir(parents=True, exist_ok=True)
+
+# Cập nhật danh sách model thế hệ mới
+DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 
 ALLOWED_MODELS = {
-    "gemini-3.5-flash-lite",   
-    "gemini-2.5-flash",       
-    "gemini-2.5-pro",         
+    "gemini-3.5-flash-lite",
+    "gemini-3.8-flash",
+    "gemini-3.1-pro",
 }
 
 SYSTEM_PROMPT = """
@@ -76,9 +79,9 @@ def build_agent(model_name: str):
     """
     selected_model = normalize_model_name(model_name)
 
-    # Initialize ChatGoogleGenerativeAI
     llm = ChatGoogleGenerativeAI(
         model=selected_model,
+        google_api_key=os.getenv("GOOGLE_API_KEY"),
         temperature=0.3,
         streaming=True
     )
@@ -111,7 +114,6 @@ def build_agent(model_name: str):
     checkpointer = SqliteSaver(conn)
 
     return workflow.compile(checkpointer=checkpointer)
-
 
 
 _AGENT_CACHE = {}
