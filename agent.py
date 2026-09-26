@@ -25,8 +25,8 @@ DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 
 ALLOWED_MODELS = {
     "gemini-3.5-flash-lite",
+    "gemini-3.6-flash",
     "gemini-3.8-flash",
-    "gemini-3.1-pro",
 }
 
 SYSTEM_PROMPT = """
@@ -83,6 +83,7 @@ def build_agent(model_name: str):
         model=selected_model,
         google_api_key=os.getenv("GOOGLE_API_KEY"),
         temperature=0.3,
+        max_output_tokens=2048,
         streaming=True
     )
 

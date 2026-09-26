@@ -124,3 +124,50 @@ def api_chat_stream(thread_id: str, message: str, model_name: str = "gemini-3.5-
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+import time
+
+
+@app.get("/api/chat-stream")
+def api_chat_stream(
+    thread_id: str, message: str, model_name: str = "gemini-3.8-flash"
+):
+  set_current_thread_id(thread_id)
+  create_or_update_conversation(thread_id, first_message=message)
+  save_chat_message(thread_id, role="user", content=message)
+
+  agent = get_agent(model_name)
+  config = {"configurable": {"thread_id": thread_id}}
+
+  def event_generator():
+    full_content = ""
+    try:
+      for message_chunk, metadata in agent.stream(
+          {"messages": [HumanMessage(content=message)]},
+          config=config,
+          stream_mode="messages",
+      ):
+        if isinstance(message_chunk, ToolMessage):
+          continue
+        if getattr(message_chunk, "tool_call_chunks", None):
+          continue
+
+        text_chunk = extract_text_content(
+            getattr(message_chunk, "content", "")
+        )
+        if text_chunk:
+          full_content += text_chunk
+          yield f"data: {json.dumps({'chunk': text_chunk})}\n\n"
+          # Đặt nhịp nghỉ nhỏ 20ms giữa các đợt bắn chunk
+          time.sleep(0.02)
+
+      if full_content.strip():
+        save_chat_message(thread_id, role="assistant", content=full_content)
+
+      yield f"data: {json.dumps({'done': True})}\n\n"
+    except Exception as e:
+      print("LỖI STREAM:", e)
+      yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+  return StreamingResponse(event_generator(), media_type="text/event-stream")
