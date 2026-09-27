@@ -84,7 +84,7 @@ async def api_upload_file(file: UploadFile = File(...), thread_id: str = Form(..
 
 
 @app.get("/api/chat-stream")
-def api_chat_stream(thread_id: str, message: str, model_name: str = "gemini-3.5-flash-lite"):
+def api_chat_stream(thread_id: str, message: str, model_name: str = "gemini-3.7-flash"):
     set_current_thread_id(thread_id)
     create_or_update_conversation(thread_id, first_message=message)
     save_chat_message(thread_id, role="user", content=message)

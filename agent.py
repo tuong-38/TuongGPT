@@ -17,16 +17,15 @@ from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.checkpoint.sqlite import SqliteSaver
 from tools import tools 
 
-# Đảm bảo thư mục lưu trữ SQLite tồn tại
 Path("data").mkdir(parents=True, exist_ok=True)
 
-# Cập nhật danh sách model thế hệ mới
-DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+# Đặt mặc định là 3.7-flash
+DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
 
 ALLOWED_MODELS = {
     "gemini-3.5-flash-lite",
     "gemini-3.6-flash",
-    "gemini-3.8-flash",
+    "gemini-3.7-flash",
 }
 
 SYSTEM_PROMPT = """
@@ -38,8 +37,15 @@ Language & Tone Guidelines:
 - If the user asks in Vietnamese, reply in natural, fluent Vietnamese.
 - If the user asks in English, reply in natural, clear English.
 
+Formatting & Mathematical Guidelines:
+- Format all mathematical and scientific formulas strictly in standard LaTeX:
+  * Use $inline$ for formulas within text (e.g., $a$, $E = mc^2$).
+  * Use $$display$$ for standalone formulas and complex equations.
+- Never omit the dollar signs ($) or use bracket notations like \( \) or \[ \].
+- Provide clear, thorough, and step-by-step explanations for complex problems. Avoid cutting off explanations prematurely.
+
 You can:
-1. Answer normal questions.
+1. Answer normal questions in depth.
 2. Use tools when needed.
 3. Search uploaded documents using the RAG tool.
 4. Search the web for latest/current information using Tavily Search.
@@ -54,36 +60,24 @@ Rules:
 - If the user asks about previous preferences or saved facts, use recall_memory.
 - Use calculator for math questions.
 - When using web search, summarize clearly and mention that the answer is based on web search results.
-- Be clear, helpful, accurate, and concise.
 """
 
 def normalize_model_name(model_name: str | None) -> str:
-    """
-    Validate selected model from frontend.
-    If model is missing or not allowed, fallback to DEFAULT_MODEL.
-    """
     if not model_name:
         return DEFAULT_MODEL
-
     model_name = model_name.strip()
-
     if model_name not in ALLOWED_MODELS:
         return DEFAULT_MODEL
-
     return model_name
 
-
 def build_agent(model_name: str):
-    """
-    Build one LangGraph agent for a selected Gemini model.
-    """
     selected_model = normalize_model_name(model_name)
 
     llm = ChatGoogleGenerativeAI(
         model=selected_model,
         google_api_key=os.getenv("GOOGLE_API_KEY"),
         temperature=0.3,
-        max_output_tokens=2048,
+        max_output_tokens=4096,  # Tăng trần token lên 4096
         streaming=True
     )
 
@@ -92,14 +86,11 @@ def build_agent(model_name: str):
     def chatbot_node(state: MessagesState):
         messages = [SystemMessage(content=SYSTEM_PROMPT)] + state["messages"]
         response = llm_with_tools.invoke(messages)
-        return {
-            "messages": [response]
-        }
+        return {"messages": [response]}
 
     tool_node = ToolNode(tools)
 
     workflow = StateGraph(MessagesState)
-
     workflow.add_node("chatbot", chatbot_node)
     workflow.add_node("tools", tool_node)
 
@@ -111,22 +102,13 @@ def build_agent(model_name: str):
         "data/langgraph_checkpoints.sqlite",
         check_same_thread=False
     )
-
     checkpointer = SqliteSaver(conn)
-
     return workflow.compile(checkpointer=checkpointer)
-
 
 _AGENT_CACHE = {}
 
 def get_agent(model_name: str | None = None):
-    """
-    Return cached LangGraph agent for selected model.
-    If not created yet, create it once and reuse it.
-    """
     selected_model = normalize_model_name(model_name)
-
     if selected_model not in _AGENT_CACHE:
         _AGENT_CACHE[selected_model] = build_agent(selected_model)
-
     return _AGENT_CACHE[selected_model]

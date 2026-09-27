@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TuongGPT</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Thư viện KaTeX hiển thị công thức toán học -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+  
+  <!-- Thư viện Marked parse Markdown -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { 
@@ -128,7 +137,6 @@
       padding: 20px 0; 
     }
     
-    /* Welcome View */
     #welcome-view { 
       width: 100%; 
       max-width: 760px; 
@@ -172,7 +180,6 @@
       color: #fff; 
     }
 
-    /* Chat Messages */
     #chat-box { 
       width: 100%; 
       max-width: 760px; 
@@ -207,11 +214,14 @@
       margin-bottom: 4px; 
     }
     .message .text { 
-      white-space: pre-wrap; 
       word-break: break-word; 
     }
+    /* KaTeX & Markdown Formats */
+    .message .text p { margin-bottom: 8px; }
+    .message .text p:last-child { margin-bottom: 0; }
+    .message .text ul, .message .text ol { margin-left: 20px; margin-bottom: 8px; }
+    .katex-display { margin: 10px 0 !important; overflow-x: auto; overflow-y: hidden; }
 
-    /* Floating Input Bar */
     #input-container { 
       width: 100%; 
       display: flex; 
@@ -323,47 +333,40 @@
     <div class="top-header">Agentic AI Chatbot</div>
 
     <div id="chat-scroll-area">
-      <!-- Màn hình ban đầu -->
       <div id="welcome-view">
         <h1>Tôi có thể giúp gì cho bạn hôm nay?</h1>
-        <p>Đặt câu hỏi, tải tài liệu, sử dụng công cụ, tra cứu web và trò chuyện cùng bộ nhớ.</p>
+        <p>Hỏi đáp công thức toán học, vật lý, tìm kiếm web và xử lý văn bản chuyên sâu.</p>
         <div class="prompt-grid">
-          <div class="prompt-card" onclick="usePrompt('Tìm kiếm tin tức công nghệ mới nhất hôm nay')">Tìm kiếm thông tin web mới nhất</div>
+          <div class="prompt-card" onclick="usePrompt('Giải thích hiện tượng nhiễu xạ ánh sáng và viết công thức toán học')">Hiện tượng nhiễu xạ ánh sáng</div>
+          <div class="prompt-card" onclick="usePrompt('Viết phương trình sóng điện từ và giải thích từng đại lượng')">Phương trình sóng điện từ</div>
           <div class="prompt-card" onclick="usePrompt('Hãy tóm tắt tài liệu tôi vừa tải lên')">Tóm tắt tài liệu đã tải lên</div>
-          <div class="prompt-card" onclick="usePrompt('Ghi nhớ rằng tôi là một lập trình viên Python')">Lưu thông tin vào bộ nhớ</div>
           <div class="prompt-card" onclick="usePrompt('Tính giá trị biểu thức: 125 * 48 / 6')">Sử dụng công cụ tính toán</div>
         </div>
       </div>
 
-      <!-- Khung hiển thị tin nhắn -->
       <div id="chat-box"></div>
     </div>
 
     <!-- Thanh dock nhập văn bản -->
     <div id="input-container">
       <div class="input-bar">
-        <!-- Đính kèm file RAG ẩn -->
         <input type="file" id="file-upload" style="display: none;" onchange="uploadRAGFile()">
         <button class="icon-btn" title="Đính kèm file RAG" onclick="document.getElementById('file-upload').click()">
           <i class="fa-solid fa-paperclip"></i>
         </button>
 
-        <!-- Nhập prompt -->
         <textarea id="prompt-input" rows="1" placeholder="Hỏi bất kỳ điều gì..." onkeydown="handleKeyDown(event)"></textarea>
 
-        <!-- Lựa chọn model -->
         <select id="model-select" class="model-selector">
           <option value="gemini-3.5-flash-lite">3.5 Flash-Lite (Siêu tốc)</option>
           <option value="gemini-3.6-flash">3.6 Flash (Ổn định)</option>
-          <option value="gemini-3.8-flash" selected>3.8 Flash (Thông minh nhất)</option>
+          <option value="gemini-3.7-flash" selected>3.7 Flash (Mạnh mẽ, Toàn diện)</option>
         </select>
 
-        <!-- Micro Dictate -->
         <button class="icon-btn" id="mic-btn" title="Nhập bằng giọng nói" onclick="toggleSpeechRecognition()">
           <i class="fa-solid fa-microphone"></i>
         </button>
 
-        <!-- Nút gửi -->
         <button class="send-btn" title="Gửi tin nhắn" onclick="sendMessage()">
           <i class="fa-solid fa-arrow-up"></i>
         </button>
@@ -439,7 +442,6 @@
 
     async function deleteChat(threadId) {
       if (!confirm("Bạn có chắc chắn muốn xóa đoạn chat này không?")) return;
-
       try {
         const res = await fetch(`/api/conversations/${threadId}`, { method: "DELETE" });
         const result = await res.json();
@@ -466,7 +468,7 @@
           welcomeView.style.display = "none";
           chatBox.style.display = "flex";
           chatBox.innerHTML = "";
-          messages.forEach(msg => appendMessageUI(msg.role, msg.content));
+          messages.forEach(msg => appendMessageUI(msg.role, msg.content, true));
           scrollToBottom();
         } else {
           welcomeView.style.display = "flex";
@@ -477,28 +479,49 @@
       }
     }
 
-    function appendMessageUI(role, content) {
+    // Hàm render Markdown và KaTeX
+    function renderFormattedContent(element, rawText) {
+      if (typeof marked !== "undefined") {
+        element.innerHTML = marked.parse(rawText);
+      } else {
+        element.innerText = rawText;
+      }
+
+      if (typeof renderMathInElement !== "undefined") {
+        renderMathInElement(element, {
+          delimiters: [
+            {left: '$$', right: '$$', display: true},
+            {left: '$', right: '$', display: false}
+          ],
+          throwOnError: false
+        });
+      }
+    }
+
+    function appendMessageUI(role, content, shouldRenderMath = false) {
       document.getElementById("welcome-view").style.display = "none";
       const chatBox = document.getElementById("chat-box");
       chatBox.style.display = "flex";
 
       const msgDiv = document.createElement("div");
       msgDiv.className = `message ${role}`;
-      msgDiv.innerHTML = `<div class="sender">${role === "user" ? "Bạn" : "TuongGPT"}</div><div class="text">${escapeHtml(content)}</div>`;
+      msgDiv.innerHTML = `<div class="sender">${role === "user" ? "Bạn" : "TuongGPT"}</div><div class="text"></div>`;
       chatBox.appendChild(msgDiv);
+      
+      const textContainer = msgDiv.querySelector(".text");
+      if (shouldRenderMath) {
+        renderFormattedContent(textContainer, content);
+      } else {
+        textContainer.innerText = content;
+      }
+
       scrollToBottom();
-      return msgDiv.querySelector(".text");
+      return textContainer;
     }
 
     function scrollToBottom() {
       const area = document.getElementById("chat-scroll-area");
       area.scrollTop = area.scrollHeight;
-    }
-
-    function escapeHtml(text) {
-      const div = document.createElement("div");
-      div.innerText = text;
-      return div.innerHTML;
     }
 
     function handleKeyDown(event) {
@@ -514,10 +537,11 @@
       if (!text) return;
 
       input.value = "";
-      appendMessageUI("user", text);
+      appendMessageUI("user", text, false);
 
       const model = document.getElementById("model-select").value;
-      const textNode = appendMessageUI("assistant", "");
+      const textNode = appendMessageUI("assistant", "", false);
+      let accumulatedText = "";
 
       const url = `/api/chat-stream?thread_id=${encodeURIComponent(currentThreadId)}&message=${encodeURIComponent(text)}&model_name=${encodeURIComponent(model)}`;
       const eventSource = new EventSource(url);
@@ -526,11 +550,15 @@
         try {
           const data = JSON.parse(event.data);
           if (data.chunk) {
-            textNode.innerText += data.chunk;
+            accumulatedText += data.chunk;
+            textNode.innerText = accumulatedText; // Hiển thị text trơn trong khi stream
             scrollToBottom();
           }
           if (data.done || data.error) {
             eventSource.close();
+            // Hoàn thành stream: render Markdown và Toán KaTeX hoàn chỉnh
+            renderFormattedContent(textNode, accumulatedText);
+            scrollToBottom();
             loadConversations();
           }
         } catch (e) {
@@ -540,10 +568,11 @@
 
       eventSource.onerror = () => {
         eventSource.close();
+        renderFormattedContent(textNode, accumulatedText);
       };
     }
 
-    /* === Speech Recognition (Nhận diện giọng nói tiếng Việt) === */
+    /* === Speech Recognition === */
     function initSpeechRecognition() {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
@@ -570,13 +599,8 @@
         document.getElementById("prompt-input").value = transcript;
       };
 
-      recognition.onerror = () => {
-        stopSpeechRecognition();
-      };
-
-      recognition.onend = () => {
-        stopSpeechRecognition();
-      };
+      recognition.onerror = () => stopSpeechRecognition();
+      recognition.onend = () => stopSpeechRecognition();
     }
 
     function toggleSpeechRecognition() {
@@ -594,7 +618,7 @@
       document.getElementById("status-bar").innerText = "TuongGPT có thể mắc lỗi. Hãy kiểm tra thông tin quan trọng.";
     }
 
-    /* === Tải file RAG === */
+    /* === RAG File Upload === */
     async function uploadRAGFile() {
       const fileInput = document.getElementById("file-upload");
       if (!fileInput.files.length) return;
@@ -609,7 +633,6 @@
       try {
         const res = await fetch("/api/upload", { method: "POST", body: formData });
         const result = await res.json();
-
         if (result.status === "success") {
           statusBar.innerText = `Đã nạp file thành công: ${result.data.filename} (${result.data.chunks} chunks)`;
         } else {
